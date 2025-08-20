@@ -1,0 +1,75 @@
+variable "access_key" {
+  description = "AWS Access Key"
+  type        = string
+  default = ""
+}
+
+variable "secret_key" {
+  description = "AWS Secret Key"
+  type        = string
+  default = ""
+}
+
+variable "region" {
+  description = "AWS Region"
+  type        = string
+  default     = "us-east-1"
+}
+
+variable "instance_type" {
+  description = "Type of EC2 instance"
+  type        = string
+  default     = "t2.micro"
+  
+}
+variable "key_name" {
+  description = "Name of the key pair to use for the instance"
+  type        = string
+  default     = "your-key-pair-name" # Replace with your key pair name
+  
+}
+
+variable "tags" {
+  description = "Tags to apply to resources"
+  type        = map(string)
+  default     = {
+    Environment = "test"
+  }
+}
+
+
+variable "security_group_name" {
+  description = "Name of the security group"
+  type        = string
+  default     = "ec2_security_group"
+}
+
+variable "ingress_rules" {
+  description = "List of ingress rules for security group"
+  type = list(object({
+    from_port   = number
+    to_port     = number
+    protocol    = string
+    cidr_blocks = list(string)
+  }))
+  default = [
+    {
+      from_port   = 22
+      to_port     = 22
+      protocol    = "tcp"
+      cidr_blocks = ["0.0.0.0/0"]
+    },
+    {
+      from_port   = 0
+      to_port     = 8001
+      protocol    = "tcp"
+      cidr_blocks = ["0.0.0.0/0"]
+    },
+    {
+      from_port   = 0
+      to_port     = 3000
+      protocol    = "tcp"
+      cidr_blocks = ["0.0.0.0/0"]
+    }
+  ]
+}

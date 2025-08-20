@@ -14,13 +14,13 @@ provider "aws" {
 }
 
 module "vpc" {
-  source   = "../modules/vpc"
+  source   = "../../modules/vpc"
   vpc_name = "main-vpc"
   tags     = var.tags
 }
 
 module "public_subnet" {
-  source                  = "../modules/subnet"
+  source                  = "../../modules/subnet"
   vpc_id                  = module.vpc.vpc_id
   subnet_cidr             = "10.0.1.0/24"
   availability_zone       = "${var.region}a"
@@ -30,7 +30,7 @@ module "public_subnet" {
 }
 
 module "private_subnet" {
-  source            = "../modules/subnet"
+  source            = "../../modules/subnet"
   vpc_id            = module.vpc.vpc_id
   subnet_cidr       = "10.0.2.0/24"
   availability_zone = "${var.region}b"
@@ -39,7 +39,7 @@ module "private_subnet" {
 }
 
 module "nat_gateway" {
-  source           = "../modules/nat-gateway"
+  source           = "../../modules/nat-gateway"
   public_subnet_id = module.public_subnet.subnet_id
   nat_name         = "main-nat"
   tags             = var.tags
@@ -58,7 +58,7 @@ resource "aws_route" "private_route" {
 }
 
 module "public_sg" {
-  source      = "../modules/security-group"
+  source      = "../../modules/security-group"
   name        = "public-sg"
   description = "Security group for public instance"
   vpc_id      = module.vpc.vpc_id
@@ -76,7 +76,7 @@ module "public_sg" {
 }
 
 module "private_sg" {
-  source      = "../modules/security-group"
+  source      = "../../modules/security-group"
   name        = "private-sg"
   description = "Security group for private instance"
   vpc_id      = module.vpc.vpc_id
@@ -94,7 +94,7 @@ module "private_sg" {
 }
 
 module "public_ec2" {
-  source            = "../modules/ec2-public"
+  source            = "../../modules/ec2-public"
   ami_id            = var.ami_id
   instance_type     = var.instance_type
   key_name          = var.key_name
@@ -105,7 +105,7 @@ module "public_ec2" {
 }
 
 module "private_ec2" {
-  source            = "../modules/ec2-private"
+  source            = "../../modules/ec2-private"
   ami_id            = var.ami_id
   instance_type     = var.instance_type
   key_name          = var.key_name
