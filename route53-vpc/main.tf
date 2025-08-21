@@ -74,6 +74,19 @@ resource "aws_route" "public_internet" {
   gateway_id             = module.vpc.internet_gateway_id
 }
 
+module "nat_gateway" {
+  source           = "../modules/nat-gateway"
+  public_subnet_id = module.public_subnet.subnet_id
+  nat_name         = "${var.vpc_name}-nat"
+  tags             = var.tags
+}
+
+resource "aws_route" "private_nat" {
+  route_table_id         = module.private_subnet.route_table_id
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id         = module.nat_gateway.nat_gateway_id
+}
+
 module "security_group" {
   source      = "../modules/security-group"
   name        = "${var.vpc_name}-sg"
@@ -98,26 +111,58 @@ module "security_group" {
   tags = var.tags
 }
 
-module "app_instance" {
-  source            = "../modules/ec2-public"
-  ami_id            = "ami-020cba7c55df1f615"
-  instance_type     = var.instance_type
-  key_name          = "${var.vpc_name}-key"
-  security_group_id = module.security_group.security_group_id
-  subnet_id         = module.public_subnet.subnet_id
-  instance_name     = "app"
-  tags              = var.tags
+resource "tls_private_key" "app_key" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
 }
 
-module "db_instance" {
-  source            = "../modules/ec2-private"
-  ami_id            = "ami-020cba7c55df1f615"
-  instance_type     = var.instance_type
-  key_name          = "${var.vpc_name}-key"
-  security_group_id = module.security_group.security_group_id
-  subnet_id         = module.private_subnet.subnet_id
-  instance_name     = "db"
-  tags              = var.tags
+resource "aws_key_pair" "app_key" {
+  key_name   = "${var.vpc_name}-key-new"
+  public_key = tls_private_key.app_key.public_key_openssh
+}
+
+resource "local_file" "app_private_key" {
+  content         = tls_private_key.app_key.private_key_pem
+  filename        = "${path.root}/${var.vpc_name}-key-new.pem"
+  file_permission = "0400"
+}
+
+resource "aws_instance" "app" {
+  ami                    = "ami-020cba7c55df1f615"
+  instance_type          = var.instance_type
+  key_name               = aws_key_pair.app_key.key_name
+  vpc_security_group_ids = [module.security_group.security_group_id]
+  subnet_id              = module.public_subnet.subnet_id
+  
+  user_data = <<-EOF
+    #!/bin/bash
+    echo "nameserver 169.254.169.253" > /etc/resolv.conf
+    echo "search ${var.domain_name}" >> /etc/resolv.conf
+    systemctl restart systemd-resolved
+  EOF
+  
+  tags = merge(var.tags, {
+    Name = "app"
+  })
+}
+
+resource "aws_instance" "db" {
+  ami                    = "ami-020cba7c55df1f615"
+  instance_type          = var.instance_type
+  key_name               = aws_key_pair.app_key.key_name
+  vpc_security_group_ids = [module.security_group.security_group_id]
+  subnet_id              = module.private_subnet.subnet_id
+  
+  user_data = <<-EOF
+    #!/bin/bash
+    echo "nameserver:69.253" > /etc/resolv.conf
+    echo "search ${var.domain_name}" >> /etc/resolv.conf
+    systemctl restart systemd-resolved
+  EOF
+  
+  tags = merge(var.tags, {
+    Name = "db"
+  })
 }
 
 module "route53" {
@@ -126,8 +171,8 @@ module "route53" {
   vpc_id      = module.vpc.vpc_id
   
   dns_records = {
-    "app.${var.domain_name}" = module.app_instance.private_ip
-    "db.${var.domain_name}"  = module.db_instance.private_ip
+    "app.${var.domain_name}" = aws_instance.app.private_ip
+    "db.${var.domain_name}"  = aws_instance.db.private_ip
   }
   
   tags = var.tags
