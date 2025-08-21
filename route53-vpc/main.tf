@@ -17,21 +17,23 @@ terraform {
 
 provider "aws" {
   region = var.aws_region
+  access_key = var.access_key
+  secret_key = var.secret_key
 }
 
 data "aws_availability_zones" "available" {
   state = "available"
 }
 
-data "aws_ami" "amazon_linux" {
-  most_recent = true
-  owners      = ["amazon"]
+# data "aws_ami" "amazon_linux" {
+#   most_recent = true
+#   owners      = ["amazon"]
   
-  filter {
-    name   = "name"
-    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
-  }
-}
+#   filter {
+#     name   = "name"
+#     values = ["amzn2-ami-hvm-*-x86_64-gp2"]
+#   }
+# }
 
 module "vpc" {
   source   = "../modules/vpc"
@@ -98,7 +100,7 @@ module "security_group" {
 
 module "app_instance" {
   source            = "../modules/ec2-public"
-  ami_id            = data.aws_ami.amazon_linux.id
+  ami_id            = "ami-020cba7c55df1f615"
   instance_type     = var.instance_type
   key_name          = "${var.vpc_name}-key"
   security_group_id = module.security_group.security_group_id
@@ -109,7 +111,7 @@ module "app_instance" {
 
 module "db_instance" {
   source            = "../modules/ec2-private"
-  ami_id            = data.aws_ami.amazon_linux.id
+  ami_id            = "ami-020cba7c55df1f615"
   instance_type     = var.instance_type
   key_name          = "${var.vpc_name}-key"
   security_group_id = module.security_group.security_group_id
